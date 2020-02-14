@@ -97,7 +97,7 @@ def PR2COCO(ROI_index, coco, opt):
     for col_rect in col_rects:
         coco.addAnnotation(ROI_index, col_rect, 0, 1)
 
-    #add section_rect to coco
+    # add section_rect to coco
     section_rects = GetSectionRects(row_rects, cls)
     for section_rect in section_rects:
         coco.addAnnotation(ROI_index, section_rect, 0, 2)
@@ -110,7 +110,7 @@ def PR2COCO(ROI_index, coco, opt):
             coco.addAnnotation(ROI_index, row_rect, 1, cls['id'][i])
             i += 1
 
-    import pdb;pdb.set_trace()
+    #import pdb;pdb.set_trace()
 
 if __name__ == "__main__":
     # by default we use firm section
