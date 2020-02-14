@@ -2,6 +2,18 @@ import json
 import argparse
 import os
 import cv2
+import numpy as np
+
+class NpEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, np.integer):
+            return int(obj)
+        elif isinstance(obj, np.floating):
+            return float(obj)
+        elif isinstance(obj, np.ndarray):
+            return obj.tolist()
+        else:
+            return super(NpEncoder, self).default(obj)
 
 def RectFN2ImgFN(fname):
     # transform the rectangle json filename to original image filename
@@ -19,9 +31,6 @@ class Annotation:
         self.bbox = [x_min, y_min, x_max-x_min, y_max-y_min]
         self.segmentation = self.segmentation.ravel().tolist()
 
-    def to_dict(self):
-        pass
-
 class COCO:
     def __init__(self):
         self.annotations = []
@@ -31,7 +40,12 @@ class COCO:
         self.annotations.append(annotation)
 
     def to_Json(self, path):
-        pass
+        data = [annotation.__dict__ for annotation in self.annotations]
+        import pdb;
+        pdb.set_trace()
+        with open(path, 'w') as outfile:
+            json.dump(data, outfile,  cls=NpEncoder)
+            print('writing results to ' + path)
 
 def PR2COCO(ROI_index, coco, opt):
     # read in ROI_rect
