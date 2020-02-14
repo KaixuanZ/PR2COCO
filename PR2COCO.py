@@ -2,7 +2,37 @@ import json
 import argparse
 import os
 import cv2
+import utils
 import numpy as np
+
+
+def RectFN2ImgFN(fname):
+    # transform the rectangle json filename to original image filename
+    return '_'.join(fname.split('.')[0].split('_')[:2]) + '.png'
+
+def GetSectionRects(row_rects, cls):
+    section_rects = []
+    section_rect = None
+    i = 0
+    for col in row_rects:
+        if section_rect:                                        # save section_rect each time we go to next col
+            section_rects.append(section_rect)
+        section_rect = None
+        for row_rect in row_rects[col]:
+            if cls['name'][i] != 'company name':
+                if cls['name'][max(i-1,0)] == 'company name' and section_rect:   # save section_rect if current one is not company and previous one is company
+                    section_rects.append(section_rect)
+                    section_rect = None
+            else:
+                if cls['name'][max(i-1,0)] != 'company name' and section_rect:   # save section_rect if current one is company and previous one is not company
+                    section_rects.append(section_rect)
+                    section_rect = None
+            if section_rect:                                    # append row_rect to section_rect
+                section_rect = utils.CombineRects(row_rect, section_rect)
+            else:
+                section_rect = row_rect
+            i+=1
+    return section_rects
 
 class NpEncoder(json.JSONEncoder):
     def default(self, obj):
@@ -14,10 +44,6 @@ class NpEncoder(json.JSONEncoder):
             return obj.tolist()
         else:
             return super(NpEncoder, self).default(obj)
-
-def RectFN2ImgFN(fname):
-    # transform the rectangle json filename to original image filename
-    return '_'.join(fname.split('.')[0].split('_')[:2]) + '.png'
 
 class Annotation:
     def __init__(self, image_id, rect, category_id, id):
@@ -41,8 +67,6 @@ class COCO:
 
     def to_Json(self, path):
         data = [annotation.__dict__ for annotation in self.annotations]
-        import pdb;
-        pdb.set_trace()
         with open(path, 'w') as outfile:
             json.dump(data, outfile,  cls=NpEncoder)
             print('writing results to ' + path)
@@ -63,15 +87,8 @@ def PR2COCO(ROI_index, coco, opt):
     # read in classification results
     with open(os.path.join(opt.cls_path, ROI_index)) as file:
         cls = json.load(file)
-    cls = cls['id']
 
-    # transform them into COCO json format
-    # use the first annotation:
-    # Has a segmentation list of vertices (x, y pixel positions)
-    # Has an area of 702 pixels (pretty small) and a bounding box of [473.07,395.93,38.65,28.67]
-    # Is not a crowd (meaning it’s a single object)
-    # Is category id of 18 (which is a dog)
-    # Corresponds with an image with id 289343 (which is a person on a strange bicycle and a tiny dog)
+    # transform them into COCO json format (the first annotation)
 
     # add ROI_rect to coco
     coco.addAnnotation(ROI_index, ROI_rect, 0, 0)
@@ -81,13 +98,16 @@ def PR2COCO(ROI_index, coco, opt):
         coco.addAnnotation(ROI_index, col_rect, 0, 1)
 
     #add section_rect to coco
+    section_rects = GetSectionRects(row_rects, cls)
+    for section_rect in section_rects:
+        coco.addAnnotation(ROI_index, section_rect, 0, 2)
 
     # add row_rect to coco
     i = 0
     for col in row_rects:
         for row_rect in row_rects[col]:
             coco.addAnnotation(ROI_index, row_rect, 0, 3)
-            coco.addAnnotation(ROI_index, row_rect, 1, cls[i])
+            coco.addAnnotation(ROI_index, row_rect, 1, cls['id'][i])
             i += 1
 
     import pdb;pdb.set_trace()
